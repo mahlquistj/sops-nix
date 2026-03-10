@@ -430,6 +430,10 @@ func prepareSecretsDir(secretMountpoint string, linkName string, keysGID int, us
 	if err := os.Mkdir(dir, os.FileMode(0o751)); err != nil {
 		return nil, fmt.Errorf("mkdir(): %w", err)
 	}
+	if err := os.Chmod(dir, 0751); err != nil {
+		_ = os.RemoveAll(dir)
+		return fmt.Errorf("cannot chmod temporary symlink directory '%s': %w", dir, err)
+	}
 	if !userMode {
 		if err := os.Chown(dir, 0, int(keysGID)); err != nil {
 			return nil, fmt.Errorf("cannot change owner/group of '%s' to 0/%d: %w", dir, keysGID, err)
