@@ -102,6 +102,19 @@ const (
 	Ini    FormatType = "ini"
 )
 
+func debugStat(label, p string) {
+	st, err := os.Stat(p)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "DEBUG-SOPS: %s stat(%s) failed: %v\n", label, p, err)
+		return
+	}
+	if sys, ok := st.Sys().(*syscall.Stat_t); ok {
+		fmt.Fprintf(os.Stderr, "DEBUG-SOPS: %s path=%s mode=%#o inode=%d\n", label, p, st.Mode().Perm(), sys.Ino)
+	} else {
+		fmt.Fprintf(os.Stderr, "DEBUG-SOPS: %s path=%s mode=%#o\n", label, p, st.Mode().Perm())
+	}
+}
+
 func IsValidFormat(format string) bool {
 	switch format {
 	case string(Yaml),
@@ -1405,18 +1418,23 @@ func installSecrets(args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to prepare new secrets directory: %w", err)
 	}
+	debugStat("after prepareSecretsDir", *secretDir)
+
 	if err := writeSecrets(*secretDir, manifest.Secrets, keysGID, manifest.UserMode); err != nil {
 		return fmt.Errorf("cannot write secrets: %w", err)
 	}
+	debugStat("after writeSecrets", *secretDir)
 
 	if err := writeTemplates(path.Join(*secretDir, RenderedSubdir), manifest.Templates, keysGID, manifest.UserMode); err != nil {
 		return fmt.Errorf("cannot render templates: %w", err)
 	}
+	debugStat("after writeTemplates", *secretDir)
 
 	if !manifest.UserMode {
 		if err := handleModifications(isDry, manifest.Logging, manifest.SymlinkPath, *secretDir, manifest.Secrets, manifest.Templates); err != nil {
 			return fmt.Errorf("cannot request units to restart: %w", err)
 		}
+		debugStat("after handleModifications", *secretDir)
 	}
 	// No need to perform the actual symlinking
 	if isDry {
@@ -1425,13 +1443,19 @@ func installSecrets(args []string) error {
 	if err := atomicSymlink(*secretDir, manifest.SymlinkPath); err != nil {
 		return fmt.Errorf("cannot update secrets symlink: %w", err)
 	}
+	debugStat("after atomicSymlink", *secretDir)
 	if err := symlinkSecretsAndTemplates(manifest.SymlinkPath, manifest.Secrets, manifest.Templates, manifest.UserMode); err != nil {
 		return fmt.Errorf("failed to prepare symlinks to secret store: %w", err)
 	}
+	debugStat("after symlinkSecretsAndTemplates", *secretDir)
 	if err := pruneGenerations(manifest.SecretsMountPoint, *secretDir, manifest.KeepGenerations); err != nil {
 		return fmt.Errorf("cannot prune old secrets generations: %w", err)
 	}
+	debugStat("after pruneGenerations", *secretDir)
 
+	if err := os.Chmod(*secretDir, 0o751); err != nil {
+		return fmt.Errorf("cannot chmod final secrets dir '%s' to 0751: %w", *secretDir, err)
+	}
 	return nil
 }
 
