@@ -434,7 +434,14 @@ func prepareSecretsDir(secretMountpoint string, linkName string, keysGID int, us
 		_ = os.RemoveAll(dir)
 		return nil, fmt.Errorf("cannot chmod temporary symlink directory '%s': %w", dir, err)
 	}
-	fmt.Fprintf(os.Stderr, "DEBUG-SOPS: created %s\n", dir)
+	if st, err := os.Stat(dir); err == nil {
+		fmt.Fprintf(os.Stderr, "DEBUG-SOPS: after prepareSecretsDir dir=%s mode=%#o\n", dir, st.Mode().Perm())
+	} else {
+		fmt.Fprintf(os.Stderr, "DEBUG-SOPS: stat failed for %s: %v\n", dir, err)
+	}
+	oldUmask := syscall.Umask(0)
+	syscall.Umask(oldUmask)
+	fmt.Fprintf(os.Stderr, "DEBUG-SOPS: process umask=%#o\n", oldUmask)
 	if !userMode {
 		if err := os.Chown(dir, 0, int(keysGID)); err != nil {
 			return nil, fmt.Errorf("cannot change owner/group of '%s' to 0/%d: %w", dir, keysGID, err)
