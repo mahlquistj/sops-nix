@@ -434,7 +434,7 @@ func prepareSecretsDir(secretMountpoint string, linkName string, keysGID int, us
 		_ = os.RemoveAll(dir)
 		return nil, fmt.Errorf("cannot chmod temporary symlink directory '%s': %w", dir, err)
 	}
-	fmt.Fprintf(os.stdErr, "DEBUG-SOPS: created %s\n", dir)
+	fmt.Fprintf(os.Stderr, "DEBUG-SOPS: created %s\n", dir)
 	if !userMode {
 		if err := os.Chown(dir, 0, int(keysGID)); err != nil {
 			return nil, fmt.Errorf("cannot change owner/group of '%s' to 0/%d: %w", dir, keysGID, err)
